@@ -1,0 +1,55 @@
+{{- if .Values.networkpolicy.create }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ template "digital-lending.fullname" . }}-np
+  namespace: {{ .Values.deployment.namespace | default (( include "digital-lending.namespace" . )) }}
+{{- if .Values.networkpolicy.annotations }}
+  annotations:
+{{ toYaml .Values.networkpolicy.annotations | indent 4}}
+{{- end }}
+  labels:
+    {{- include "digital-lending.labels" . | nindent 4 }}
+{{- if .Values.networkpolicy.labels }}
+{{ toYaml .Values.networkpolicy.labels | indent 4 }}
+{{- end }}
+spec:
+  podSelector:
+    matchLabels:
+    {{- include "digital-lending.selectorLabels" . | nindent 6 }}
+  {{- if .Values.networkpolicy.allowanyingress }}
+  ingress:
+    - {}
+  {{- end }}
+  {{- if .Values.networkpolicy.allowanyegress }}
+  egress:
+    - {}
+  {{- end }}
+{{- if or .Values.networkpolicy.ingressRules .Values.networkpolicy.egressRules .Values.networkpolicy.allowanyegress .Values.networkpolicy.allowanyingress }}
+  policyTypes:
+{{- if or .Values.networkpolicy.ingressRules .Values.networkpolicy.allowanyingress  }}
+    - Ingress
+{{- end }}
+{{- if or .Values.networkpolicy.egressRules .Values.networkpolicy.allowanyegress }}
+    - Egress
+{{- end }}
+{{- end }}
+{{- if .Values.networkpolicy.egressRules }}
+  egress:
+{{-  range $rule := .Values.networkpolicy.egressRules }}
+    - to:
+{{ toYaml $rule.to | indent 9 }}
+      ports:
+{{ toYaml $rule.ports | indent 9 }}
+{{- end }}
+{{- end }}
+{{- if .Values.networkpolicy.ingressRules }}
+  ingress:
+{{-  range $rule := .Values.networkpolicy.ingressRules }}
+    - from:
+{{ toYaml $rule.from | indent 7 }}
+      ports:
+{{ toYaml $rule.ports | indent 9 }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,12 @@
+{{- if .Values.configmap.create }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "digital-lending.fullname" . }}-cm
+  namespace: {{ .Values.deployment.namespace | default (( include "digital-lending.namespace" . )) }}
+  labels:
+  {{- include "digital-lending.labels" . | nindent 4 }}
+data:
+  CONFIGMAP_DEMO: {{ .Values.configmap.CONFIGMAP_DEMO }}
+{{- end }}
+

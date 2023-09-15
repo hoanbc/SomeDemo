@@ -1,0 +1,101 @@
+{{- if .Values.deployment.create }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "digital-lending.fullname" . }}-app
+  namespace: {{ .Values.deployment.namespace | default (( include "digital-lending.namespace" . )) }}
+  labels:
+    {{- include "digital-lending.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.hpa.autoscaling.create }}
+  replicas: {{ .Values.deployment.replicaCount }}
+  {{- end }}
+  strategy:
+    type: {{ .Values.deployment.strategy }}
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 600
+  selector:
+    matchLabels:
+      {{- include "digital-lending.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.deployment.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "digital-lending.selectorLabels" . | nindent 8 }}
+    spec:
+      imagePullSecrets:
+      {{- if  .Values.secretpull.create }}
+        - name:  {{ .Chart.Name }}-pull-sec
+      {{- end }}
+      {{- if  .Values.serviceAccount.create }}
+      serviceAccountName: {{ include "digital-lending.serviceAccountName" . }}
+      {{- end }}
+      containers:
+        - name: {{ .Values.fullname }}
+          securityContext:
+            {{- toYaml .Values.deployment.securityContext | nindent 12 }}
+          image: "{{ .Values.deployment.image.registry }}/{{ .Values.deployment.image.repository }}@sha256:{{ .Values.deployment.image.version | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.deployment.image.pullPolicy }}
+          ports:
+            - name: {{ .Values.deployment.ports.name }}
+              containerPort: {{ .Values.deployment.ports.containerPort }}
+              protocol: {{ .Values.deployment.ports.protocol }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.deployment.livenessProbe.httpGet.path }}
+              port: {{ .Values.deployment.livenessProbe.httpGet.port }} 
+              httpHeaders:
+              - name: livenessProbe
+                value: liveness
+            initialDelaySeconds: {{ .Values.deployment.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.deployment.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.deployment.livenessProbe.failureThreshold }}
+          readinessProbe: 
+            httpGet:
+              path: {{ .Values.deployment.readinessProbe.httpGet.path }}
+              port: {{ .Values.deployment.readinessProbe.httpGet.port }} 
+              httpHeaders:
+              - name: readinessProbe
+                value: readiness
+            initialDelaySeconds: {{ .Values.deployment.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.deployment.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.deployment.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.deployment.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.deployment.livenessProbe.failureThreshold }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/bash", "-c", "sleep 60"]
+          resources:
+            {{- toYaml .Values.deployment.resources | nindent 12 }}
+          {{- with .Values.deployment.env }}
+          env:
+            {{- toYaml . | nindent 10 }}
+          {{- end }}
+      {{- with .Values.deployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - {{ include "digital-lending.fullname" . }}-app
+            topologyKey: "kubernetes.io/hostname"
+      {{- with .Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

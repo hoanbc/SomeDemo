@@ -1,0 +1,19 @@
+{{- if .Values.egress }}
+{{- if .Values.egress.create }}
+kind: EgressIP
+apiVersion: k8s.ovn.org/v1
+metadata:
+  name: {{ include "digital-lending.namespace" . }}-to-external-{{ .Values.egress.name }}
+  labels:
+    {{- include "digital-lending.labels" . | nindent 4 }}
+spec:
+  egressIPs:
+    - {{ .Values.egress.ips }}
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values:
+          - {{ include "digital-lending.namespace" . }}
+{{- end }}
+{{- end }}

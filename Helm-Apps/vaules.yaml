@@ -1,0 +1,229 @@
+###Info
+fullname: "adminapi-engagement-be"
+project: dl
+env: prod
+
+###Deployment
+deployment:
+  create: true
+  replicaCount: 1
+  strategy: RollingUpdate
+  image:
+    registry: quay.io
+    repository: hoanbc_it/nginx-unprivileged
+    pullPolicy: IfNotPresent
+    version: cdb53540a18e862ac2cc89f10d9cc3cccaf7b2e83331dce05750812ead3d6a45
+  imagePullSecrets: digital-lending-pull-sec
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 800m
+      memory: 1.75Gi
+  ports:
+    name: "app-port"
+    containerPort: 8080
+    protocol: TCP
+  livenessProbe:
+    httpGet:
+      path: "/"
+      port: "app-port"
+      httpHeaders:
+      - name: readinessProbe
+        value: readiness
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    failureThreshold: 5
+    successThreshold: 1
+    timeoutSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: "/"
+      port: "app-port"
+      httpHeaders:
+      - name: livenessProbe
+        value: liveness
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    failureThreshold: 5
+    successThreshold: 1
+    timeoutSeconds: 10
+  env:
+    - name: TZ
+      value: Asia/Ho_Chi_Minh
+  nodeSelector: {}
+  tolerations: []
+  podAnnotations: {}
+  podSecurityContext: {}
+  securityContext:
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: false 
+    runAsNonRoot: true
+    runAsUser: 200000001
+    runAsGroup: 200000001
+    privileged: false
+
+#HPA
+hpa:
+  autoscaling:
+    create: true
+    minReplicas: 2
+    maxReplicas: 3
+    memory:
+      averageUtilization: 80
+    cpu:
+      averageUtilization: 80
+
+###Service
+service:
+  create: true
+  type: ClusterIP
+  port: 8080
+  protocol: TCP
+  targetPort: 8080
+  nameport: "app-port"
+  sessionAffinity: None
+
+###ServiceAccount
+serviceAccount:
+  create: true 
+
+###Route
+route:
+  create: true
+  annotations:
+    #haproxy.router.openshift.io/timeout: 120000ms
+    haproxy.router.openshift.io/set-forwarded-headers: append
+    avp.kubernetes.io/path: "digital-lending/data/ssl"
+  labels:
+    type: "internal"
+  host: "adminapi.engagement.testvn.click"
+  path: "/"
+  wildcardPolicy: None
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    certificate: <cert-adminapi-engagement-be>
+    key: <key-adminapi-engagement-be>
+    caCertificate: <root-ca-private>
+    destinationCACertificate: ""
+  service:
+    targetPort: "app-port"
+    weight: 100
+  alternateBackends: []
+
+###Secret
+secretpull:
+  create: true
+  pull: PGltYWdlUHVsbFNlY3JldHM+
+  type: kubernetes.io/dockerconfigjson
+  vault: "digital-lending/data/secrets" 
+
+###Configmap
+configmap:
+  create: false
+
+##SCC
+scc:
+  create: true
+  
+### Egress
+egress:
+  create: false
+  name: 38-162
+  ips: 10.252.38.162
+
+###Network Policy
+networkpolicy:
+  create: true
+  allowanyingress: false
+  allowanyegress: false
+  ingressRules:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: blackbox-exporter
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-monitoring
+      ports:
+        - protocol: TCP
+          port: 2222
+    - ports:
+        - protocol: TCP
+          port: 9537 
+    - from:
+        - ipBlock:
+            cidr: 10.131.16.2/32
+        - ipBlock:
+            cidr: 10.128.18.2/32 
+      ports:
+        - protocol: TCP
+          port: 2222
+    - from:
+        - podSelector:
+            matchLabels:
+              app: dl-prod-integration-los-int-app
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dl-prod-integration-los-int-ns
+      ports:
+        - protocol: TCP
+          port: 2222
+  egressRules:
+    - to:
+        - podSelector:
+            matchLabels:
+              dns.operator.openshift.io/daemonset-dns: default
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-dns
+      ports:
+        - protocol: UDP
+          port: 5353
+        - protocol: TCP
+          port: 5353
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dl-prod-redis-replication
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: lfvn-prod-redis-ns
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dl-prod-mongodb-svc
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: lfvn-prod-mongodb-ns
+      ports:
+        - protocol: TCP
+          port: 27017
+    - to:
+        - podSelector:
+            matchLabels:
+              app: dl-prod-integration-engagement-int-app
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dl-prod-integration-engagement-int-ns
+      ports:
+        - protocol: TCP
+          port: 2222
+    - to:
+        - podSelector:
+            matchLabels:
+              function: apm
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: lfvn-prod-eck-ns
+      ports:
+        - protocol: TCP
+          port: 8200

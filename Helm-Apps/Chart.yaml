@@ -1,0 +1,9 @@
+apiVersion: v2
+name: Demo123
+description: Helm chart for project digital lending
+type: application
+version: 0.1.0
+appVersion: "1.16.0"
+maintainers:
+- name: hoanbc
+  email: hoanbc@outlook.com
