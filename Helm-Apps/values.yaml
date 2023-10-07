@@ -1,6 +1,6 @@
 ###Info
-fullname: "adminapi-engagement-be"
-project: dl
+fullname: "argocd-demo"
+project: hbc
 env: prod
 
 ###Deployment
@@ -13,22 +13,22 @@ deployment:
     repository: hoanbc_it/nginx-unprivileged
     pullPolicy: IfNotPresent
     version: cdb53540a18e862ac2cc89f10d9cc3cccaf7b2e83331dce05750812ead3d6a45
-  imagePullSecrets: digital-lending-pull-sec
+  imagePullSecrets: hbc-pull-sec
   resources:
     limits:
-      cpu: 1000m
-      memory: 2Gi
+      cpu: 100m
+      memory: 300Mi
     requests:
-      cpu: 800m
-      memory: 1.75Gi
+      cpu: 50m
+      memory: 100Mi
   ports:
-    name: "app-port"
+    name: "http-port"
     containerPort: 8080
     protocol: TCP
   livenessProbe:
     httpGet:
       path: "/"
-      port: "app-port"
+      port: "http-port"
       httpHeaders:
       - name: readinessProbe
         value: readiness
@@ -40,7 +40,7 @@ deployment:
   readinessProbe:
     httpGet:
       path: "/"
-      port: "app-port"
+      port: "http-port"
       httpHeaders:
       - name: livenessProbe
         value: liveness
@@ -70,8 +70,8 @@ deployment:
 hpa:
   autoscaling:
     create: true
-    minReplicas: 2
-    maxReplicas: 3
+    minReplicas: 1
+    maxReplicas: 2
     memory:
       averageUtilization: 80
     cpu:
@@ -84,7 +84,7 @@ service:
   port: 8080
   protocol: TCP
   targetPort: 8080
-  nameport: "app-port"
+  nameport: "http-port"
   sessionAffinity: None
 
 ###ServiceAccount
@@ -93,26 +93,26 @@ serviceAccount:
 
 ###Route
 route:
-  create: true
+  create: false
   annotations:
     #haproxy.router.openshift.io/timeout: 120000ms
     haproxy.router.openshift.io/set-forwarded-headers: append
-    avp.kubernetes.io/path: "digital-lending/data/ssl"
+    avp.kubernetes.io/path: "hbc-project/data/ssl"
   labels:
     type: "internal"
-  host: "adminapi.engagement.testvn.click"
+  host: "argocd-demo.devops.id.vn"
   path: "/"
   wildcardPolicy: None
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    certificate: <cert-adminapi-engagement-be>
-    key: <key-adminapi-engagement-be>
+    certificate: <hbc-project-cert>
+    key: <hbc-project-key>
     caCertificate: <root-ca-private>
     destinationCACertificate: ""
   service:
-    targetPort: "app-port"
+    targetPort: "http-port"
     weight: 100
   alternateBackends: []
 
@@ -121,7 +121,7 @@ secretpull:
   create: true
   pull: PGltYWdlUHVsbFNlY3JldHM+
   type: kubernetes.io/dockerconfigjson
-  vault: "digital-lending/data/secrets" 
+  vault: "hbc-project/data/secrets" 
 
 ###Configmap
 configmap:
@@ -133,9 +133,9 @@ scc:
   
 ### Egress
 egress:
-  create: false
-  name: 38-162
-  ips: 10.252.38.162
+  create: true
+  name: 12-201
+  ips: 10.200.12.201
 
 ###Network Policy
 networkpolicy:
@@ -152,28 +152,20 @@ networkpolicy:
               kubernetes.io/metadata.name: openshift-monitoring
       ports:
         - protocol: TCP
-          port: 2222
+          port: 8080
     - ports:
         - protocol: TCP
           port: 9537 
     - from:
-        - ipBlock:
-            cidr: 10.131.16.2/32
-        - ipBlock:
-            cidr: 10.128.18.2/32 
-      ports:
-        - protocol: TCP
-          port: 2222
-    - from:
         - podSelector:
             matchLabels:
-              app: dl-prod-integration-los-int-app
+              ingresscontroller.operator.openshift.io/deployment-ingresscontroller: external-ingress
           namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: dl-prod-integration-los-int-ns
+              kubernetes.io/metadata.name: openshift-ingress
       ports:
         - protocol: TCP
-          port: 2222
+          port: 8080
   egressRules:
     - to:
         - podSelector:
@@ -187,43 +179,3 @@ networkpolicy:
           port: 5353
         - protocol: TCP
           port: 5353
-    - to:
-        - podSelector:
-            matchLabels:
-              app: dl-prod-redis-replication
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: lfvn-prod-redis-ns
-      ports:
-        - protocol: TCP
-          port: 6379
-    - to:
-        - podSelector:
-            matchLabels:
-              app: dl-prod-mongodb-svc
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: lfvn-prod-mongodb-ns
-      ports:
-        - protocol: TCP
-          port: 27017
-    - to:
-        - podSelector:
-            matchLabels:
-              app: dl-prod-integration-engagement-int-app
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: dl-prod-integration-engagement-int-ns
-      ports:
-        - protocol: TCP
-          port: 2222
-    - to:
-        - podSelector:
-            matchLabels:
-              function: apm
-          namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: lfvn-prod-eck-ns
-      ports:
-        - protocol: TCP
-          port: 8200
