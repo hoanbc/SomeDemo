@@ -129,7 +129,7 @@ configmap:
 
 ##SCC
 scc:
-  create: true
+  create: false
   
 ### Egress
 egress:
