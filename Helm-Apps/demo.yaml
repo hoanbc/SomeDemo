@@ -97,7 +97,7 @@ route:
     haproxy.router.openshift.io/set-forwarded-headers: append
     avp.kubernetes.io/path: "hbc-project/data/ssl"
   labels:
-    type: "internal"
+    type: "external"
   host: "demo.devops.id.vn"
   path: "/"
   wildcardPolicy: None
