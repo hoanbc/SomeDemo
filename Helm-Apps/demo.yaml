@@ -62,8 +62,6 @@ deployment:
       - ALL
     readOnlyRootFilesystem: false 
     runAsNonRoot: true
-    runAsUser: 200000001
-    runAsGroup: 200000001
     privileged: false
 
 #HPA
@@ -93,14 +91,14 @@ serviceAccount:
 
 ###Route
 route:
-  create: false
+  create: true
   annotations:
     #haproxy.router.openshift.io/timeout: 120000ms
     haproxy.router.openshift.io/set-forwarded-headers: append
     avp.kubernetes.io/path: "hbc-project/data/ssl"
   labels:
     type: "internal"
-  host: "argocd-demo.devops.id.vn"
+  host: "demo.devops.id.vn"
   path: "/"
   wildcardPolicy: None
   tls:
